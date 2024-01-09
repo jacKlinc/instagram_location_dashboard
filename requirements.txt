@@ -1,0 +1,6 @@
+requests
+numpy
+pandas
+selenium
+webdriver-manager
+streamlit
