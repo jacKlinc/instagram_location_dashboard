@@ -35,16 +35,6 @@ class InstagramResponse:
 
 
 # Functions
-def add_custom_css():
-    st.markdown(
-        """
-        <style>
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def plot_coords(df: pd.DataFrame):
     """Plots GPS coordinates on Streamlit map
 
