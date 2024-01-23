@@ -35,7 +35,7 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Set env
-      run: echo "INSTAGRAM_COOKIES=$(echo $INSTAGRAM_COOKIES | cut -c 1-6)" >> $INSTAGRAM_COOKIES
+      run: echo "INSTAGRAM_COOKIES=$(echo ${{secrets.INSTAGRAM_COOKIES}} | cut -c 1-6)" >> $INSTAGRAM_COOKIES
     - name: Test with pytest
       run: |
           pip install pytest pytest-cov
