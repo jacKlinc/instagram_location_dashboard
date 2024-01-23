@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-from ..utils import Page, get_instagram_locations, plot_coords
+from ..utils import Page, query_instagram, plot_coords
 
 
 class InstagramSearch(Page):
@@ -22,10 +22,13 @@ class InstagramSearch(Page):
         longitude = st.text_input("Please enter the longitude", placeholder=4.9041)  # type: ignore
 
         if cookies:
-            locations = get_instagram_locations(latitude, longitude, cookies)
-            if locations:
-                locations_df = pd.DataFrame(locations)
-                st.write(locations_df)
-                plot_coords(locations_df)
+            response = query_instagram(latitude, longitude, cookies)
+            if not response:
+                st.text("No response from Instagram. Please check cookies")
             else:
-                st.text("No results found. Please check inputs again")
+                if not response.venues:
+                    st.text("No results found. Please check GPS inputs again")
+                else:
+                    locations_df = pd.DataFrame(response.venues)
+                    st.write(locations_df)
+                    plot_coords(locations_df)

@@ -140,6 +140,4 @@ dmypy.json
 cython_debug/
 
 # Custom
-env
-.instagram_location_searcher
-secrets.txt
+*.ipynb
