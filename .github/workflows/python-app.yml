@@ -10,7 +10,7 @@ on:
     branches: [ "main" ]
 
 env:
-  HUB_AUTH_TOKEN: ${{ secrets.INSTAGRAM_COOKIES }}
+  INSTAGRAM_COOKIES: ${{ secrets.INSTAGRAM_COOKIES }}
 
 permissions:
   contents: read
