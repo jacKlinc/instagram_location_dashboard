@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 from ..src.utils import InstagramVenue, query_instagram, calcualte_fuzzy_locations
 
-load_dotenv()
+load_dotenv(override=True)
 
 lat, lng = 53.3, 6.2
 venues_example = [
@@ -61,7 +61,6 @@ venues_example_expected = [
 ]
 
 
-# TODO add pytest to CI
 def test_query_instagram():
     """Tests if cookies work"""
     # NOTE why does this return values when 0,0  is in the middle of the atlantic?
