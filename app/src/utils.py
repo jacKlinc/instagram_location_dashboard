@@ -17,7 +17,7 @@ class Page(ABC):
 
 
 @dataclass
-class InstagramVenues:
+class InstagramVenue:
     external_id: int
     external_id_source: str
     name: str
@@ -30,7 +30,7 @@ class InstagramVenues:
 class InstagramResponse:
     rank_token: str
     request_id: str
-    venues: list[InstagramVenues]
+    venues: list[InstagramVenue]
     status: str
 
 
@@ -47,16 +47,19 @@ def plot_coords(df: pd.DataFrame):
     st.map(lat_lng, longitude="lng")
 
 
-def query_instagram(params: Any, headers: Any) -> InstagramResponse | None:
+def query_instagram(lat: float, lng: float, cookies: str) -> InstagramResponse | None:
     """Queries Instagram location API
 
     Args:
-        params (Any): latitude, longitude and __a
-        headers (Any): request header
+        lat (float): area latitude
+        lng (float): area longitude
+        cookies (str): personal Instagram cookies
 
     Returns:
         InstagramResponse | None:
     """
+    params = {"latitude": lat, "longitude": lng}  # __a supports pagination
+    headers = {"Cookie": cookies}
     try:
         response = requests.get(
             constants.INSTAGRAM_URL,
@@ -72,26 +75,3 @@ def query_instagram(params: Any, headers: Any) -> InstagramResponse | None:
         print(f"Connection failed for params: {params}: {e}")
     except requests.exceptions.Timeout:
         print(f"Connections timed out after {constants.INSTAGRAM_TIMEOUT} seconds")
-
-
-def get_instagram_locations(
-    lat: float, lng: float, cookies: str
-) -> list[InstagramVenues] | None:
-    """Queries Instagram and checks data
-
-    Args:
-        lat (float): area latitude
-        lng (float): area longitude
-        cookies (str): personal Instagram cookies
-
-    Returns:
-        list[InstagramVenues] | None: _description_
-    """
-    params = {"latitude": lat, "longitude": lng}  # __a supports pagination
-    headers = {"Cookie": cookies}
-    response = query_instagram(params, headers)
-
-    if response:
-        return response.venues
-
-    print(f"Got invalid response for {lat}, {lng}")
