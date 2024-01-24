@@ -1,6 +1,6 @@
 from .instagram_search import InstagramSearch
 from .file_upload import FileUpload
-from ..utils import Page
+from ..types import Page
 
 from typing import Dict, Type
 

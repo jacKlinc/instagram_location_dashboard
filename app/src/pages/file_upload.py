@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-from ..utils import Page, plot_coords
+from ..utils import plot_coords
+from ..types import Page
 
 
 class FileUpload(Page):

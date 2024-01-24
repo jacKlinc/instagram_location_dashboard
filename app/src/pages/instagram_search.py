@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-from ..utils import Page, query_instagram, plot_coords, HttpStatus
+from ..utils import query_instagram, plot_coords
+from ..types import Page, HttpStatus
 
 
 class InstagramSearch(Page):
