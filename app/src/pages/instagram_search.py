@@ -6,9 +6,6 @@ from ..types import Page, HttpStatus
 
 
 class InstagramSearch(Page):
-    def __init__(self, state):
-        self.state = state
-
     def write(self):
         st.title("Instagram Search")
         st.text(

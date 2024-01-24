@@ -6,9 +6,6 @@ from ..types import Page
 
 
 class FileUpload(Page):
-    def __init__(self, state):
-        self.state = state
-
     def write(self):
         st.title("File Upload")
         # TODO: exception handling
