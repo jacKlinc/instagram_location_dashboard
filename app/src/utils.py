@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from statistics import pstdev
 from itertools import product
 from typing import Tuple
+from enum import Enum
+
 
 import streamlit as st
 import pandas as pd
@@ -36,6 +38,19 @@ class InstagramResponse:
     status: str
 
 
+class HttpStatus(Enum):
+    unknown = 0
+    bad_request_400 = 400
+    ok_200 = 200
+    too_many_requests_429 = 429
+
+
+@dataclass
+class APIResponse:
+    status_code: HttpStatus
+    message: InstagramResponse | dict
+
+
 # Functions
 def plot_coords(df: pd.DataFrame):
     """Plots GPS coordinates on Streamlit map
@@ -49,7 +64,7 @@ def plot_coords(df: pd.DataFrame):
     st.map(lat_lng, longitude="lng")
 
 
-def query_instagram(lat: float, lng: float, cookies: str) -> InstagramResponse | None:
+def query_instagram(lat: float, lng: float, cookies: str) -> APIResponse | None:
     """Queries Instagram location API
 
     Args:
@@ -69,10 +84,19 @@ def query_instagram(lat: float, lng: float, cookies: str) -> InstagramResponse |
             headers=headers,
             timeout=constants.INSTAGRAM_TIMEOUT,
         )
-        try:
-            return InstagramResponse(**response.json())
-        except (ValueError, TypeError) as e:
-            print(f"No values returned for params: {params}: {e}")
+        print(response.status_code)
+        if response.status_code == HttpStatus.ok_200.value:
+            # if cookies are invalid the response code is still 200
+            try:
+                return APIResponse(
+                    HttpStatus.ok_200, InstagramResponse(**response.json())
+                )
+            except (ValueError, TypeError) as e:
+                print(f"No values returned for params: {params}: {e}")
+                return APIResponse(HttpStatus.bad_request_400, {})
+        if response.status_code == HttpStatus.too_many_requests_429.value:
+            print("Too many requests for 1 hour. 200 per hour limit")
+            return APIResponse(HttpStatus.too_many_requests_429, response.json())
     except requests.exceptions.ConnectionError as e:
         print(f"Connection failed for params: {params}: {e}")
     except requests.exceptions.Timeout:
@@ -100,7 +124,7 @@ def calcualte_fuzzy_locations(
     # calculate distribution for all locations
     std_lat = pstdev([v.lat for v in venues])
     std_lng = pstdev([v.lng for v in venues])
-    
+
     sigma_range = range(-constants.FUZZY_STD, constants.FUZZY_STD + 1)
     # finds cartesian product of range (-2, 3)
     coordinate_variance = list(product(sigma_range, repeat=2))
