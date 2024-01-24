@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-from ..utils import query_instagram, plot_coords
+from ..utils import query_instagram, plot_coords, calcualte_fuzzy_locations
 from ..types import Page, HttpStatus
 
 
@@ -30,6 +30,16 @@ class InstagramSearch(Page):
                     st.text("Too many requests for 1 hour. Try again later")
 
                 if response.status_code == HttpStatus.ok_200:
-                    locations_df = pd.DataFrame(response.message.venues)
+                    locations = response.message.venues
+                    locations_df = pd.DataFrame(locations)
                     st.write(locations_df)
                     plot_coords(locations_df)
+
+                    st.write("## Fuzzy Locations")
+                    st.write("Fuzzy Locations find even more instagram posts in the area")
+                    if st.button("Calculate fuzzy locations?"):
+                        fuzzy_locations = calcualte_fuzzy_locations(
+                            locations, latitude, longitude
+                        )
+                        fuzzy_locations_df = pd.DataFrame(fuzzy_locations)
+                        st.write(fuzzy_locations_df)

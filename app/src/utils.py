@@ -63,11 +63,6 @@ def query_instagram(lat: float, lng: float, cookies: str) -> APIResponse | None:
         print(f"Connections timed out after {constants.INSTAGRAM_TIMEOUT} seconds")
 
 
-def calculate_coordinate_delta(coordinate: float, delta: float, std: float) -> float:
-    """Calculates additional coordinate based on delta"""
-    return coordinate + delta * std
-
-
 def calcualte_fuzzy_locations(
     venues: list[InstagramVenue], lat: float, lng: float
 ) -> list[Tuple[float, float]]:
@@ -90,6 +85,12 @@ def calcualte_fuzzy_locations(
     coordinate_variance = list(product(sigma_range, repeat=2))
     # removes (0,0)
     coordinate_variance_non_zero = list(filter(lambda x: any(x), coordinate_variance))
+
+    def calculate_coordinate_delta(
+        coordinate: float, delta: float, std: float
+    ) -> float:
+        """Calculates additional coordinate based on delta"""
+        return float(coordinate) + delta * std
 
     return list(
         (
