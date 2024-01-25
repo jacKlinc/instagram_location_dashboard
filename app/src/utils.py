@@ -76,6 +76,7 @@ def calcualte_fuzzy_locations(
     Returns:
         list[Tuple[float, float]]: list of augmented coordinates
     """
+    venues = [InstagramVenue(**v) for v in venues]
     # calculate distribution for all locations
     std_lat = pstdev([v.lat for v in venues])
     std_lng = pstdev([v.lng for v in venues])
