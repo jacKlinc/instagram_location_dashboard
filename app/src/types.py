@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Optional
 
 from enum import Enum
 
@@ -20,11 +21,12 @@ class Page(ABC):
 @dataclass
 class InstagramVenue:
     external_id: int
-    external_id_source: str
-    name: str
-    address: str  # this looks like distance from location (in miles)
     lat: float
     lng: float
+    external_id_source: Optional[str] = None
+    name: Optional[str] = None
+    # this looks like distance from location (in miles)
+    address: Optional[str] = None
 
 
 @dataclass

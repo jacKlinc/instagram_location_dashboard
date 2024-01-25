@@ -24,6 +24,17 @@ def plot_coords(df: pd.DataFrame):
     st.map(lat_lng, longitude="lng")
 
 
+def filter_venues(venues: list[dict]) -> list[InstagramVenue]:
+    """Filter results that don't have essential fields"""
+    return [
+        InstagramVenue(**v)
+        for v in venues
+        if "external_id" in v  # type: ignore
+        and "lat" in v  # type: ignore
+        and "lng" in v  # type: ignore
+    ]
+
+
 def query_instagram(lat: float, lng: float, cookies: str) -> APIResponse | None:
     """Queries Instagram location API
 
@@ -46,11 +57,11 @@ def query_instagram(lat: float, lng: float, cookies: str) -> APIResponse | None:
         )
         print(response.status_code)
         if response.status_code == HttpStatus.ok_200.value:
-            # if cookies are invalid the response code is still 200
             try:
-                return APIResponse(
-                    HttpStatus.ok_200, InstagramResponse(**response.json())
-                )
+                body = response.json()
+                body["venues"] = filter_venues(body["venues"])
+                return APIResponse(HttpStatus.ok_200, InstagramResponse(**body))
+            # if cookies are invalid the response code is still 200
             except (ValueError, TypeError) as e:
                 print(f"No values returned for params: {params}: {e}")
                 return APIResponse(HttpStatus.bad_request_400, {})
@@ -63,7 +74,7 @@ def query_instagram(lat: float, lng: float, cookies: str) -> APIResponse | None:
         print(f"Connections timed out after {constants.INSTAGRAM_TIMEOUT} seconds")
 
 
-def calcualte_fuzzy_locations(
+def calcualte_fuzzy_coordinates(
     venues: list[InstagramVenue], lat: float, lng: float
 ) -> list[Tuple[float, float]]:
     """Creates more nearby coordinates to query more local data
@@ -76,7 +87,6 @@ def calcualte_fuzzy_locations(
     Returns:
         list[Tuple[float, float]]: list of augmented coordinates
     """
-    venues = [InstagramVenue(**v) for v in venues]
     # calculate distribution for all locations
     std_lat = pstdev([v.lat for v in venues])
     std_lng = pstdev([v.lng for v in venues])
