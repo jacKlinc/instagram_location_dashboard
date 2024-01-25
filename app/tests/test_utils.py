@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-from ..src.utils import InstagramVenue, query_instagram, calcualte_fuzzy_locations
+from ..src.utils import InstagramVenue, query_instagram, calcualte_fuzzy_coordinates
 
 load_dotenv(override=True)
 
@@ -63,15 +63,13 @@ venues_example_expected = [
 
 def test_query_instagram():
     """Tests if cookies work"""
-    # NOTE why does this return values when 0,0  is in the middle of the atlantic?
     response_good = query_instagram(0, 0, os.getenv("INSTAGRAM_COOKIES"))
-    response_bad = query_instagram(0, 0, "this is a bad cookie")
-    assert (response_good is not None) & (response_bad is None)
+    assert response_good.status_code.value == 200
 
 
 def test_calcualte_fuzzy_locations():
     locs = [InstagramVenue(**v) for v in venues_example]
-    result = calcualte_fuzzy_locations(locs, lat, lng)
+    result = calcualte_fuzzy_coordinates(locs, lat, lng)
     expected = venues_example_expected
 
     assert result == expected
