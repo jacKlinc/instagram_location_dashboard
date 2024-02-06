@@ -1,13 +1,11 @@
 import streamlit as st
 import pandas as pd
 
-from ..utils import Page, plot_coords
+from ..utils import plot_coords
+from ..types import Page
 
 
 class FileUpload(Page):
-    def __init__(self, state):
-        self.state = state
-
     def write(self):
         st.title("File Upload")
         # TODO: exception handling

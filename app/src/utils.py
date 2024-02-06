@@ -1,5 +1,3 @@
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from statistics import pstdev
 from itertools import product
 from typing import Tuple
@@ -9,31 +7,7 @@ import pandas as pd
 import requests
 
 from . import constants
-
-
-# Classes
-class Page(ABC):
-    @abstractmethod
-    def write(self):
-        pass
-
-
-@dataclass
-class InstagramVenue:
-    external_id: int
-    external_id_source: str
-    name: str
-    address: str  # this looks like distance from location (in miles)
-    lat: float
-    lng: float
-
-
-@dataclass
-class InstagramResponse:
-    rank_token: str
-    request_id: str
-    venues: list[InstagramVenue]
-    status: str
+from .types import APIResponse, InstagramResponse, InstagramVenue, HttpStatus
 
 
 # Functions
@@ -49,7 +23,18 @@ def plot_coords(df: pd.DataFrame):
     st.map(lat_lng, longitude="lng")
 
 
-def query_instagram(lat: float, lng: float, cookies: str) -> InstagramResponse | None:
+def filter_venues(venues: list[dict]) -> list[InstagramVenue]:
+    """Filter results that don't have essential fields"""
+    return [
+        InstagramVenue(**v)
+        for v in venues
+        if "external_id" in v  # type: ignore
+        and "lat" in v  # type: ignore
+        and "lng" in v  # type: ignore
+    ]
+
+
+def query_instagram(lat: float, lng: float, cookies: str) -> APIResponse | None:
     """Queries Instagram location API
 
     Args:
@@ -69,22 +54,26 @@ def query_instagram(lat: float, lng: float, cookies: str) -> InstagramResponse |
             headers=headers,
             timeout=constants.INSTAGRAM_TIMEOUT,
         )
-        try:
-            return InstagramResponse(**response.json())
-        except (ValueError, TypeError) as e:
-            print(f"No values returned for params: {params}: {e}")
+        print(response.status_code)
+        if response.status_code == HttpStatus.ok_200.value:
+            try:
+                body = response.json()
+                body["venues"] = filter_venues(body["venues"])
+                return APIResponse(HttpStatus.ok_200, InstagramResponse(**body))
+            # if cookies are invalid the response code is still 200
+            except (ValueError, TypeError) as e:
+                print(f"No values returned for params: {params}: {e}")
+                return APIResponse(HttpStatus.bad_request_400, {})
+        if response.status_code == HttpStatus.too_many_requests_429.value:
+            print("Too many requests for 1 hour. 200 per hour limit")
+            return APIResponse(HttpStatus.too_many_requests_429, response.json())
     except requests.exceptions.ConnectionError as e:
         print(f"Connection failed for params: {params}: {e}")
     except requests.exceptions.Timeout:
         print(f"Connections timed out after {constants.INSTAGRAM_TIMEOUT} seconds")
 
 
-def calculate_coordinate_delta(coordinate: float, delta: float, std: float) -> float:
-    """Calculates additional coordinate based on delta"""
-    return coordinate + delta * std
-
-
-def calcualte_fuzzy_locations(
+def calcualte_fuzzy_coordinates(
     venues: list[InstagramVenue], lat: float, lng: float
 ) -> list[Tuple[float, float]]:
     """Creates more nearby coordinates to query more local data
@@ -97,15 +86,25 @@ def calcualte_fuzzy_locations(
     Returns:
         list[Tuple[float, float]]: list of augmented coordinates
     """
+    # if there's only one location there will be no variance -> no locations can be calculated
+    if len(venues) <= 1:
+        return []
+
     # calculate distribution for all locations
     std_lat = pstdev([v.lat for v in venues])
     std_lng = pstdev([v.lng for v in venues])
-    
+
     sigma_range = range(-constants.FUZZY_STD, constants.FUZZY_STD + 1)
     # finds cartesian product of range (-2, 3)
     coordinate_variance = list(product(sigma_range, repeat=2))
     # removes (0,0)
     coordinate_variance_non_zero = list(filter(lambda x: any(x), coordinate_variance))
+
+    def calculate_coordinate_delta(
+        coordinate: float, delta: float, std: float
+    ) -> float:
+        """Calculates additional coordinate based on delta"""
+        return float(coordinate) + delta * std
 
     return list(
         (
