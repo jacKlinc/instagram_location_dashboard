@@ -2,7 +2,6 @@ from statistics import pstdev
 from itertools import product
 from typing import Tuple
 
-
 import streamlit as st
 import pandas as pd
 import requests
@@ -87,6 +86,10 @@ def calcualte_fuzzy_coordinates(
     Returns:
         list[Tuple[float, float]]: list of augmented coordinates
     """
+    # if there's only one location there will be no variance -> no locations can be calculated
+    if len(venues) <= 1:
+        return []
+
     # calculate distribution for all locations
     std_lat = pstdev([v.lat for v in venues])
     std_lng = pstdev([v.lng for v in venues])

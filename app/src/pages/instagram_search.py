@@ -1,8 +1,16 @@
+from typing import Tuple
+from functools import reduce
+
 import streamlit as st
 import pandas as pd
+import httpx
+import asyncio
 
 from ..utils import query_instagram, plot_coords, calcualte_fuzzy_coordinates
 from ..types import InstagramVenue, Page, HttpStatus
+from ..constants import INSTAGRAM_URL
+
+fuzzy_results = []
 
 
 class InstagramSearch(Page):
@@ -34,7 +42,14 @@ class InstagramSearch(Page):
             fuzzy_coordinates = calcualte_fuzzy_coordinates(
                 self.locations, self.latitude, self.longitude
             )
-            st.write(fuzzy_coordinates)
+            if len(fuzzy_coordinates) > 1:
+                asyncio.run(self.query_fuzzy_locations(fuzzy_coordinates))
+                # flattens list and creates dataframe
+                fuzzy_df = pd.DataFrame(reduce(lambda xs, ys: xs + ys, fuzzy_results))
+                st.write(fuzzy_df)
+                plot_coords(fuzzy_df)
+            else:
+                st.write("Too few coordinates, no additional queries made.")
 
     def write(self):
         st.title("Instagram Search")
@@ -55,3 +70,34 @@ class InstagramSearch(Page):
         # Return sub-sections
         self.location_section()
         self.fuzzy_locations_section()
+
+    async def query_instagram_async(
+        self, client: httpx.AsyncClient, lat: float, lng: float
+    ):
+        """Async Instagram query
+
+        Args:
+            client (httpx.AsyncClient): async client
+            lat (float): area latitude
+            lng (float): area longitude
+        """
+        params = {"latitude": lat, "longitude": lng}
+        HEADERS = {"Cookie": self.cookies, "Content-Type": "application/json"}
+        r = await client.get(INSTAGRAM_URL, params=params, headers=HEADERS)
+
+        fuzzy_results.append(r.json()["venues"])
+
+    async def query_fuzzy_locations(self, locations: list[Tuple[float, float]]):
+        """Loops over fuzzy locations and re-queries API
+
+        Args:
+            locations (list[Tuple[float, float]]): GPS coordinates
+        """
+        HEADERS = {"Cookie": self.cookies, "Content-Type": "application/json"}
+
+        async with httpx.AsyncClient(headers=HEADERS) as client:
+            tasks = [
+                asyncio.create_task(self.query_instagram_async(client, k[0], k[1]))
+                for k in locations
+            ]
+            await asyncio.gather(*tasks)
