@@ -1,80 +1,45 @@
 import asyncio
-import json
 import time
+import os
+from dotenv import load_dotenv
 
 import httpx
-import matplotlib.pyplot as plt
-import seaborn as sns
 import streamlit as st
 
-number_of_ingredients = st.sidebar.text_input("Number of main ingredients in your meal")
-try:
-    num_ingredients = int(number_of_ingredients)
-except Exception as e:
-    print(e)
-    st.stop()
 
-ingredients = {}
-for i in range(1, int(number_of_ingredients) + 1):
-    ingredient = st.sidebar.text_input(f"Ingredient_{i}")
-    amount = st.sidebar.text_input(f"Amount_{i}")
-    unit = st.sidebar.text_input(f"Unit_{i}")
-    ingredients[ingredient] = amount, unit
-    try:
-        food = str(ingredient)
-        qty = int(amount)
-        unt = str(unit)
-    except Exception as e:
-        print(e)
-        st.stop()
+load_dotenv(override=True)
 
-APP_ID=""
-APP_KEY=""
-URL = "https://trackapi.nutritionix.com/v2/natural/nutrients"
-HEADER = {
-    "Content-Type": "application/json",
-    "x-app-id": APP_ID,
-    "x-app-key": APP_KEY,
-}
+HEADERS = {"Cookie": os.getenv("INSTAGRAM_COOKIES"), "Content-Type": "application/json"}
+INSTAGRAM_URL = "https://www.instagram.com/location_search/"
 
-nutrition = {"protein": 0, "fat": 0, "carbs": 0}
+insta_result = []
 
 
-async def get_nutritionix(client, body):
-    r = await client.post(URL, json=body)
-    r = json.loads(r.text)["foods"][0]
-    nutrition["protein"] += r["nf_protein"]
-    nutrition["fat"] += r["nf_total_fat"]
-    nutrition["carbs"] += r["nf_total_carbohydrate"]
-    return
+async def get_insta(client: httpx.AsyncClient, lat: float, lng: float):
+    params = {"latitude": lat, "longitude": lng}
+    r = await client.get(INSTAGRAM_URL, params=params, headers=HEADERS)
+
+    venue = {"coord": f"{str(lat)}, {str(lng)}", "venues": r.json()["venues"]}
+    insta_result.append(venue)
 
 
 async def main():
-    async with httpx.AsyncClient(headers=HEADER) as client:
-        tasks = []
-        for k, v in ingredients.items():
-            BODY = {"query": f"{v[0]}{v[1]} of {k}", "timezone": "US/Eastern"}
-            tasks.append(asyncio.create_task(get_nutritionix(client, BODY)))
-        # macros = await asyncio.gather(*tasks)
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        fuzzy_locations = [
+            (52.9, 5.8),
+            (52.9, 5.9),
+            (52.9, 6),
+            (52.9, 6.1),
+            (52.9, 6.2),
+        ]
+
+        tasks = [
+            asyncio.create_task(get_insta(client, k[0], k[1])) for k in fuzzy_locations
+        ]
         await asyncio.gather(*tasks)
 
 
 start_time = time.time()
 asyncio.run(main())
 
-st.write(
-    f"Meal macros: Protein: {nutrition['protein']:.1f} g,"
-    f" Fat: {nutrition['fat']:.1f} g,"
-    f" Carbs: {nutrition['carbs']:.1f} g"
-)
-
-st.write(
-    "Calls to the Nutritionix API took a total of: "
-    f"{time.time() - start_time:.1f} seconds"
-)
-
-fig1, ax1 = plt.subplots()
-labels = ["protein", "fat", "carbohydrate"]
-sizes = [nutrition["protein"], nutrition["fat"], nutrition["carbs"]]
-ax1 = sns.barplot(x=labels, y=sizes)
-st.pyplot(fig1)
+st.write(insta_result)
