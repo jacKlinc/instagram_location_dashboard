@@ -1,0 +1,4 @@
+newspaper3k
+beautifulsoup4
+langchain
+chromadb
