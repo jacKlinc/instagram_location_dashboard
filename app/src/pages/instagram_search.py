@@ -1,14 +1,20 @@
 from typing import Tuple
 from functools import reduce
+from re import search
 
 import streamlit as st
 import pandas as pd
 import httpx
 import asyncio
 
-from ..utils import query_instagram, plot_coords, calcualte_fuzzy_coordinates
+from ..utils import (
+    query_instagram,
+    plot_coords,
+    calcualte_fuzzy_coordinates,
+    make_df_columns_links,
+)
 from ..types import InstagramVenue, Page, HttpStatus
-from ..constants import INSTAGRAM_URL
+from ..constants import INSTAGRAM_URL, INSTAGRAM_POST_URL, MAPS_TEST_URL
 
 fuzzy_results = []
 
@@ -18,6 +24,7 @@ class InstagramSearch(Page):
     longitude: float
     cookies: str
     locations: list[InstagramVenue]
+    search_option: str
 
     # Sub-sections
     def location_section(self):
@@ -30,9 +37,20 @@ class InstagramSearch(Page):
                 st.text("Too many requests for 1 hour. Try again later")
 
             if response.status_code == HttpStatus.ok_200:
-                self.locations = response.message.venues # type: ignore
+                self.locations = response.message.venues  # type: ignore
                 locations_df = pd.DataFrame(self.locations)
-                st.write(locations_df)
+                locations_df["link"] = INSTAGRAM_POST_URL + locations_df[
+                    "external_id"
+                ].astype(str)
+                # Rearrange columns
+                column_names = list(locations_df.columns.values) # will be ["Product", "Selling Price", "Cost Price"]
+                column_names.insert(1, column_names[-1])  # insert last element of list at index 1
+                column_names.pop()  # remove last element of list
+                locations_df = locations_df[column_names]
+                
+                # Add link
+                make_df_columns_links(locations_df, "link", "Open Instagram")
+
                 plot_coords(locations_df)
 
     def fuzzy_locations_section(self):
@@ -51,21 +69,35 @@ class InstagramSearch(Page):
             else:
                 st.write("Too few coordinates, no additional queries made.")
 
+    def sidebar(self):
+        # TODO: add regex to for check correct format
+        self.cookies = st.sidebar.text_input(
+            "Please enter your Instagram cookies", type="password"
+        )
+
+        st.sidebar.markdown("### Coordinates")
+        search_option = st.sidebar.radio("Use Google Maps or GPS?", ["Maps", "GPS"])
+        if search_option == "Maps":
+            google_maps_url = st.sidebar.text_input("Please enter Google Maps link")
+            if google_maps_url == "":
+                google_maps_url = MAPS_TEST_URL
+            match = search(r"@([-\d.]+),([-\d.]+)", google_maps_url)
+            if match:
+                self.latitude = float(match.group(1))
+                self.longitude = float(match.group(2))
+
+        if search_option == "GPS":
+            # NOTE we could get the cookies from a browser extension
+            # TODO: add regex to for check correct format
+            self.latitude = st.sidebar.text_input("Please enter the latitude", placeholder=52.3676)  # type: ignore
+            self.longitude = st.sidebar.text_input("Please enter the longitude", placeholder=4.9041)  # type: ignore
+
     def write(self):
+        self.sidebar()
         st.title("Instagram Search")
         st.text(
             "This section will use the existing Bellingcat repo to search for activity in an area"
         )
-
-        # TODO: add regex to for check correct format
-        self.cookies = st.text_input(
-            "Please enter your Instagram cookies", type="password"
-        )
-
-        # NOTE we could get the cookies from a browser extension
-        # TODO: add regex to for check correct format
-        self.latitude = st.text_input("Please enter the latitude", placeholder=52.3676)  # type: ignore
-        self.longitude = st.text_input("Please enter the longitude", placeholder=4.9041)  # type: ignore
 
         # Return sub-sections
         self.location_section()

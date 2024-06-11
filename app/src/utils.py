@@ -113,3 +113,13 @@ def calcualte_fuzzy_coordinates(
         )
         for delta_lat, delta_lng in coordinate_variance_non_zero
     )
+
+
+def make_df_columns_links(df: pd.DataFrame, col_name: str, link_name: str):
+    return st.data_editor(
+        df,
+        column_config={
+            col_name: st.column_config.LinkColumn(col_name, display_text=link_name)
+        },
+        hide_index=True,
+    )
