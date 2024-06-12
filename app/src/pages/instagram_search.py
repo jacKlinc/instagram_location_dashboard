@@ -1,5 +1,6 @@
 from typing import Tuple
 from functools import reduce
+from re import search
 
 import streamlit as st
 import pandas as pd
@@ -8,7 +9,7 @@ import asyncio
 
 from ..utils import query_instagram, plot_coords, calcualte_fuzzy_coordinates
 from ..types import InstagramVenue, Page, HttpStatus
-from ..constants import INSTAGRAM_URL
+from ..constants import INSTAGRAM_URL, INSTAGRAM_POST_URL, MAPS_TEST_URL
 
 fuzzy_results = []
 
@@ -18,6 +19,7 @@ class InstagramSearch(Page):
     longitude: float
     cookies: str
     locations: list[InstagramVenue]
+    search_option: str
 
     # Sub-sections
     def location_section(self):
@@ -30,9 +32,10 @@ class InstagramSearch(Page):
                 st.text("Too many requests for 1 hour. Try again later")
 
             if response.status_code == HttpStatus.ok_200:
-                self.locations = response.message.venues # type: ignore
+                self.locations = response.message.venues  # type: ignore
                 locations_df = pd.DataFrame(self.locations)
-                st.write(locations_df)
+                locations_df = self.format_location_table(locations_df)
+
                 plot_coords(locations_df)
 
     def fuzzy_locations_section(self):
@@ -46,30 +49,77 @@ class InstagramSearch(Page):
                 asyncio.run(self.query_fuzzy_locations(fuzzy_coordinates))
                 # flattens list and creates dataframe
                 fuzzy_df = pd.DataFrame(reduce(lambda xs, ys: xs + ys, fuzzy_results))
-                st.write(fuzzy_df)
+                fuzzy_df = self.format_location_table(fuzzy_df)
                 plot_coords(fuzzy_df)
             else:
                 st.write("Too few coordinates, no additional queries made.")
 
+    def sidebar(self):
+        # TODO: add regex to for check correct format
+        self.cookies = st.sidebar.text_input(
+            "Please enter your Instagram cookies", type="password"
+        )
+
+        st.sidebar.markdown("### Coordinates")
+        search_option = st.sidebar.radio("Use Google Maps or GPS?", ["Maps", "GPS"])
+        if search_option == "Maps":
+            google_maps_url = st.sidebar.text_input("Please enter Google Maps link")
+            if google_maps_url == "":
+                google_maps_url = MAPS_TEST_URL
+            match = search(r"@([-\d.]+),([-\d.]+)", google_maps_url)
+            if match:
+                self.latitude = float(match.group(1))
+                self.longitude = float(match.group(2))
+
+        if search_option == "GPS":
+            # NOTE we could get the cookies from a browser extension
+            # TODO: add regex to for check correct format
+            self.latitude = st.sidebar.text_input("Please enter the latitude", placeholder=52.3676)  # type: ignore
+            self.longitude = st.sidebar.text_input("Please enter the longitude", placeholder=4.9041)  # type: ignore
+
     def write(self):
+        self.sidebar()
         st.title("Instagram Search")
         st.text(
             "This section will use the existing Bellingcat repo to search for activity in an area"
         )
 
-        # TODO: add regex to for check correct format
-        self.cookies = st.text_input(
-            "Please enter your Instagram cookies", type="password"
-        )
-
-        # NOTE we could get the cookies from a browser extension
-        # TODO: add regex to for check correct format
-        self.latitude = st.text_input("Please enter the latitude", placeholder=52.3676)  # type: ignore
-        self.longitude = st.text_input("Please enter the longitude", placeholder=4.9041)  # type: ignore
-
         # Return sub-sections
         self.location_section()
         self.fuzzy_locations_section()
+
+    @staticmethod
+    def format_location_table(df: pd.DataFrame):
+        """Adds clickable Instagram link and rearranges columns
+
+        Args:
+            df (pd.DataFrame): locations table
+
+        Returns:
+            _type_: formatted table
+        """
+        # Appends id to root Instagram link
+        df["link"] = INSTAGRAM_POST_URL + df["external_id"].astype(str)
+
+        # Rearrange columns
+        column_names = list(df.columns.values)
+        column_names.insert(1, column_names[-1])
+        column_names.pop()
+        df = df[column_names]
+
+        def make_df_columns_links(df: pd.DataFrame, col_name: str, link_name: str):
+            return st.data_editor(
+                df,
+                column_config={
+                    col_name: st.column_config.LinkColumn(
+                        col_name, display_text=link_name
+                    )
+                },
+                hide_index=True,
+            )
+
+        # Add link
+        return make_df_columns_links(df, "link", "Open Instagram")
 
     async def query_instagram_async(
         self, client: httpx.AsyncClient, lat: float, lng: float

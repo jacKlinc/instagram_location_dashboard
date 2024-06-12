@@ -113,3 +113,6 @@ def calcualte_fuzzy_coordinates(
         )
         for delta_lat, delta_lng in coordinate_variance_non_zero
     )
+
+
+
