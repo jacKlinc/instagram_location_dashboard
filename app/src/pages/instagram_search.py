@@ -7,12 +7,7 @@ import pandas as pd
 import httpx
 import asyncio
 
-from ..utils import (
-    query_instagram,
-    plot_coords,
-    calcualte_fuzzy_coordinates,
-    make_df_columns_links,
-)
+from ..utils import query_instagram, plot_coords, calcualte_fuzzy_coordinates
 from ..types import InstagramVenue, Page, HttpStatus
 from ..constants import INSTAGRAM_URL, INSTAGRAM_POST_URL, MAPS_TEST_URL
 
@@ -39,17 +34,7 @@ class InstagramSearch(Page):
             if response.status_code == HttpStatus.ok_200:
                 self.locations = response.message.venues  # type: ignore
                 locations_df = pd.DataFrame(self.locations)
-                locations_df["link"] = INSTAGRAM_POST_URL + locations_df[
-                    "external_id"
-                ].astype(str)
-                # Rearrange columns
-                column_names = list(locations_df.columns.values) # will be ["Product", "Selling Price", "Cost Price"]
-                column_names.insert(1, column_names[-1])  # insert last element of list at index 1
-                column_names.pop()  # remove last element of list
-                locations_df = locations_df[column_names]
-                
-                # Add link
-                make_df_columns_links(locations_df, "link", "Open Instagram")
+                locations_df = self.format_location_table(locations_df)
 
                 plot_coords(locations_df)
 
@@ -64,7 +49,7 @@ class InstagramSearch(Page):
                 asyncio.run(self.query_fuzzy_locations(fuzzy_coordinates))
                 # flattens list and creates dataframe
                 fuzzy_df = pd.DataFrame(reduce(lambda xs, ys: xs + ys, fuzzy_results))
-                st.write(fuzzy_df)
+                fuzzy_df = self.format_location_table(fuzzy_df)
                 plot_coords(fuzzy_df)
             else:
                 st.write("Too few coordinates, no additional queries made.")
@@ -102,6 +87,39 @@ class InstagramSearch(Page):
         # Return sub-sections
         self.location_section()
         self.fuzzy_locations_section()
+
+    @staticmethod
+    def format_location_table(df: pd.DataFrame):
+        """Adds clickable Instagram link and rearranges columns
+
+        Args:
+            df (pd.DataFrame): locations table
+
+        Returns:
+            _type_: formatted table
+        """
+        # Appends id to root Instagram link
+        df["link"] = INSTAGRAM_POST_URL + df["external_id"].astype(str)
+
+        # Rearrange columns
+        column_names = list(df.columns.values)
+        column_names.insert(1, column_names[-1])
+        column_names.pop()
+        df = df[column_names]
+
+        def make_df_columns_links(df: pd.DataFrame, col_name: str, link_name: str):
+            return st.data_editor(
+                df,
+                column_config={
+                    col_name: st.column_config.LinkColumn(
+                        col_name, display_text=link_name
+                    )
+                },
+                hide_index=True,
+            )
+
+        # Add link
+        return make_df_columns_links(df, "link", "Open Instagram")
 
     async def query_instagram_async(
         self, client: httpx.AsyncClient, lat: float, lng: float
