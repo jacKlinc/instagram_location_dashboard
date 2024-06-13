@@ -2,5 +2,6 @@ httpx==0.26.0
 pandas==2.2.0
 python-dotenv==1.0.1
 Requests==2.31.0
-streamlit==1.30.0
+streamlit==1.35.0
 black==23.12.1
+telethon==1.33.1 
